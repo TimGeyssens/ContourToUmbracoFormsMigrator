@@ -55,6 +55,7 @@ namespace Umbraco.Forms.Migration
                         foreach(var fieldset in page.FieldSets)
                         {
                             var v4Fieldset = new Umbraco.Forms.Core.FieldSet();
+                            v4Fieldset.Caption = fieldset.Caption;
 
                             var v4Container = new Umbraco.Forms.Core.FieldsetContainer();
                             v4Container.Width = 12;
@@ -69,6 +70,7 @@ namespace Umbraco.Forms.Migration
                                 v4Field.InvalidErrorMessage = field.InvalidErrorMessage;
                                 v4Field.Mandatory = field.Mandatory;
                                 v4Field.RequiredErrorMessage = field.RequiredErrorMessage;
+                                v4Field.RegEx = field.RegEx;
 
                                 using (var pvs = new PreValueStorage(sql))
                                 {
