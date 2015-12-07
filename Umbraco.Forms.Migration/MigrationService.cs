@@ -27,6 +27,7 @@ namespace Umbraco.Forms.Migration
                 {
                     var v4Form = new Umbraco.Forms.Core.Form();
 
+                    v4Form.Id = form.Id;
                     v4Form.Name = form.Name;
                     v4Form.DisableDefaultStylesheet = form.DisableDefaultStylesheet;
                     v4Form.FieldIndicationType = (FormFieldIndication)System.Enum.Parse(typeof(FormFieldIndication), ((int)form.FieldIndicationType).ToString()); ;
