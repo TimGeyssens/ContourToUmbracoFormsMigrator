@@ -20,7 +20,10 @@ namespace Umbraco.Forms.Migration
         public void Migrate(string connString)
         {
             var sql = DataLayerHelper.CreateSqlHelper(connString);
-            
+
+            // fix RecordFields where DataType is set to 'String' but data is stored as different type
+            FixDataTypes(sql);
+
             using (var fs = new FormStorage(sql))
             {
                 foreach (var form in fs.GetAllForms(false))
@@ -211,6 +214,22 @@ namespace Umbraco.Forms.Migration
             }
             return null;
         }
-        
+
+        /// <summary>
+        /// Fixes DataType values incorrectly set to 'String' for fields that use a different data type
+        /// This method changes data in the original database!
+        /// </summary>
+        private void FixDataTypes(ISqlHelper sqlHelper)
+        {
+            // We found in our database that UFRecordFields had the DataType set as 'String' for all field values, regardless of the actual data type.
+            string sql = "UPDATE [UFRecordFields] Set DataType = 'Bit' WHERE DataType = 'String' AND [Key] IN ( SELECT [Key] FROM [UFRecordDataBit] ) AND [Key] NOT IN ( SELECT [Key] FROM [UFRecordDataString] )";
+            sqlHelper.ExecuteNonQuery(sql);
+            sql = "UPDATE [UFRecordFields] Set DataType = 'DateTime' WHERE DataType = 'String' AND [Key] IN ( SELECT [Key] FROM [UFRecordDataDateTime] ) AND [Key] NOT IN ( SELECT [Key] FROM [UFRecordDataString] )";
+            sqlHelper.ExecuteNonQuery(sql);
+            sql = "UPDATE [UFRecordFields] Set DataType = 'Integer' WHERE DataType = 'String' AND [Key] IN ( SELECT [Key] FROM [UFRecordDataInteger] ) AND [Key] NOT IN ( SELECT [Key] FROM [UFRecordDataString] )";
+            sqlHelper.ExecuteNonQuery(sql);
+            sql = "UPDATE [UFRecordFields] Set DataType = 'LongString' WHERE DataType = 'String' AND [Key] IN ( SELECT [Key] FROM [UFRecordDataLongString] ) AND [Key] NOT IN ( SELECT [Key] FROM [UFRecordDataString] )";
+            sqlHelper.ExecuteNonQuery(sql);
+        }
     }
 }
