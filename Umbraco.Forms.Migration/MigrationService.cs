@@ -127,12 +127,12 @@ namespace Umbraco.Forms.Migration
                         {
                             using (var wsv4 = new Forms.Data.Storage.WorkflowStorage())
                             {
-                                
                                 var v4Workflow = new Core.Workflow();
                                 v4Workflow.Name = workflow.Name;
                                 v4Workflow.Id = workflow.Id;
                                 v4Workflow.Type = workflow.Type;
-                                v4Workflow.ExecutesOn = (Core.Enums.FormState)System.Enum.Parse(typeof(Core.Enums.FormState), ((int)workflow.ExecutesOn).ToString()); ; ;
+                                v4Workflow.ExecutesOn = (Core.Enums.FormState)System.Enum.Parse(typeof(Core.Enums.FormState), ((int)workflow.ExecutesOn).ToString());
+                                v4Workflow.Form = v4Form.Id;
                                 v4Workflow.Settings = workflow.Settings;
                                 wsv4.InsertWorkflow(v4Form,v4Workflow);
                             }
