@@ -141,7 +141,54 @@ namespace Umbraco.Forms.Migration
 
 
                     using (var s = new Forms.Data.Storage.FormStorage()) { 
-                    s.InsertForm(v4Form);
+                        v4Form = s.InsertForm(v4Form);
+                    }
+
+
+
+                    // store records
+                    using (var rs = new RecordStorage(sql))
+                    {
+                        var records = rs.GetAllRecords(form);
+                        foreach(var r in records)
+                        {
+                            using (var rs4 = new Forms.Data.Storage.RecordStorage())
+                            {
+                                var v4Record = new Core.Record();
+                                v4Record.Form = v4Form.Id;
+                                v4Record.Created = r.Created;
+                                v4Record.Updated = r.Updated;
+                                v4Record.State = (FormState)r.State;
+                                v4Record.CurrentPage = r.currentPage;
+                                v4Record.UmbracoPageId = r.umbracoPageId;
+                                v4Record.IP = r.IP;
+                                v4Record.MemberKey = r.MemberKey;
+                                // field values - added in this second step as all values are otherwise deleted and reinserted which is SLOW
+                                v4Record.RecordFields = new Dictionary<Guid, Core.RecordField>();
+                                foreach (var kvp in r.RecordFields)
+                                {
+                                    var rf = kvp.Value;
+                                    v4Record.RecordFields.Add(kvp.Key, new Core.RecordField
+                                    {
+                                        Key = rf.Key,
+                                        FieldId = rf.FieldId,
+                                        Field = GetFormField(v4Form, rf.FieldId), // field needs to be set correctly, otherwise UFRecordData doesn't get written
+                                        DataType = (Core.FieldDataType)rf.DataType,
+                                        DataTypeAlias = rf.DataTypeAlias,
+                                        Values = rf.Values
+                                    });
+                                }
+                                v4Record.RecordData = v4Record.GenerateRecordDataAsJson();
+
+                                rs4.InsertRecord(v4Record, v4Form);
+
+                                // reset DateTime fields to original value, InsertRecord sets them to DateTime.Now
+                                v4Record.Created = r.Created;
+                                v4Record.Updated = r.Updated;
+
+                                rs4.UpdateRecord(v4Record, v4Form);
+                            }
+                        }
                     }
                 }
             }
@@ -149,6 +196,21 @@ namespace Umbraco.Forms.Migration
 
         }
 
+        private Core.Field GetFormField(Core.Form form, Guid fieldId)
+        {
+            foreach(var p in form.Pages)
+            {
+                foreach(var fs in p.FieldSets)
+                {
+                    foreach(var c in fs.Containers)
+                    {
+                        if(c.Fields.Any(x => x.Id == fieldId))
+                            return c.Fields.First(x => x.Id == fieldId);
+                    }
+                }
+            }
+            return null;
+        }
         
     }
 }
