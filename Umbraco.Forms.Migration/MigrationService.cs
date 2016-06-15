@@ -20,7 +20,10 @@ namespace Umbraco.Forms.Migration
         public void Migrate(string connString)
         {
             var sql = DataLayerHelper.CreateSqlHelper(connString);
-            
+
+            // fix RecordFields where DataType is set to 'String' but data is stored as different type
+            FixDataTypes(sql);
+
             using (var fs = new FormStorage(sql))
             {
                 foreach (var form in fs.GetAllForms(false))
@@ -119,6 +122,11 @@ namespace Umbraco.Forms.Migration
                         v4Form.Pages.Add(v4Page);
                     }
 
+                    using (var s = new Forms.Data.Storage.FormStorage())
+                    {
+                        v4Form = s.InsertForm(v4Form);
+                    }
+
                     using (var ws = new WorkflowStorage(sql))
                     {
                         var wfs = ws.GetAllWorkFlows(form);
@@ -127,21 +135,61 @@ namespace Umbraco.Forms.Migration
                         {
                             using (var wsv4 = new Forms.Data.Storage.WorkflowStorage())
                             {
-                                
                                 var v4Workflow = new Core.Workflow();
                                 v4Workflow.Name = workflow.Name;
                                 v4Workflow.Id = workflow.Id;
                                 v4Workflow.Type = workflow.Type;
-                                v4Workflow.ExecutesOn = (Core.Enums.FormState)System.Enum.Parse(typeof(Core.Enums.FormState), ((int)workflow.ExecutesOn).ToString()); ; ;
+                                v4Workflow.ExecutesOn = (Core.Enums.FormState)System.Enum.Parse(typeof(Core.Enums.FormState), ((int)workflow.ExecutesOn).ToString());
+                                v4Workflow.Form = v4Form.Id;
                                 v4Workflow.Settings = workflow.Settings;
                                 wsv4.InsertWorkflow(v4Form,v4Workflow);
                             }
                         }
                     }
+                    
+                    // store records
+                    using (var rs = new RecordStorage(sql))
+                    {
+                        var records = rs.GetAllRecords(form);
+                        foreach(var r in records)
+                        {
+                            using (var rs4 = new Forms.Data.Storage.RecordStorage())
+                            {
+                                var v4Record = new Core.Record();
+                                v4Record.Form = v4Form.Id;
+                                v4Record.Created = r.Created;
+                                v4Record.Updated = r.Updated;
+                                v4Record.State = (FormState)r.State;
+                                v4Record.CurrentPage = r.currentPage;
+                                v4Record.UmbracoPageId = r.umbracoPageId;
+                                v4Record.IP = r.IP;
+                                v4Record.MemberKey = r.MemberKey;
+                                // field values - added in this second step as all values are otherwise deleted and reinserted which is SLOW
+                                v4Record.RecordFields = new Dictionary<Guid, Core.RecordField>();
+                                foreach (var kvp in r.RecordFields)
+                                {
+                                    var rf = kvp.Value;
+                                    v4Record.RecordFields.Add(kvp.Key, new Core.RecordField
+                                    {
+                                        Key = rf.Key,
+                                        FieldId = rf.FieldId,
+                                        Field = GetFormField(v4Form, rf.FieldId), // field needs to be set correctly, otherwise UFRecordData doesn't get written
+                                        DataType = (Core.FieldDataType)rf.DataType,
+                                        DataTypeAlias = rf.DataTypeAlias,
+                                        Values = rf.Values
+                                    });
+                                }
+                                v4Record.RecordData = v4Record.GenerateRecordDataAsJson();
 
+                                rs4.InsertRecord(v4Record, v4Form);
 
-                    using (var s = new Forms.Data.Storage.FormStorage()) { 
-                    s.InsertForm(v4Form);
+                                // reset DateTime fields to original value, InsertRecord sets them to DateTime.Now
+                                v4Record.Created = r.Created;
+                                v4Record.Updated = r.Updated;
+
+                                rs4.UpdateRecord(v4Record, v4Form);
+                            }
+                        }
                     }
                 }
             }
@@ -149,6 +197,37 @@ namespace Umbraco.Forms.Migration
 
         }
 
-        
+        private Core.Field GetFormField(Core.Form form, Guid fieldId)
+        {
+            foreach(var p in form.Pages)
+            {
+                foreach(var fs in p.FieldSets)
+                {
+                    foreach(var c in fs.Containers)
+                    {
+                        if(c.Fields.Any(x => x.Id == fieldId))
+                            return c.Fields.First(x => x.Id == fieldId);
+                    }
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Fixes DataType values incorrectly set to 'String' for fields that use a different data type
+        /// This method changes data in the original database!
+        /// </summary>
+        private void FixDataTypes(ISqlHelper sqlHelper)
+        {
+            // We found in our database that UFRecordFields had the DataType set as 'String' for all field values, regardless of the actual data type.
+            string sql = "UPDATE [UFRecordFields] Set DataType = 'Bit' WHERE DataType = 'String' AND [Key] IN ( SELECT [Key] FROM [UFRecordDataBit] ) AND [Key] NOT IN ( SELECT [Key] FROM [UFRecordDataString] )";
+            sqlHelper.ExecuteNonQuery(sql);
+            sql = "UPDATE [UFRecordFields] Set DataType = 'DateTime' WHERE DataType = 'String' AND [Key] IN ( SELECT [Key] FROM [UFRecordDataDateTime] ) AND [Key] NOT IN ( SELECT [Key] FROM [UFRecordDataString] )";
+            sqlHelper.ExecuteNonQuery(sql);
+            sql = "UPDATE [UFRecordFields] Set DataType = 'Integer' WHERE DataType = 'String' AND [Key] IN ( SELECT [Key] FROM [UFRecordDataInteger] ) AND [Key] NOT IN ( SELECT [Key] FROM [UFRecordDataString] )";
+            sqlHelper.ExecuteNonQuery(sql);
+            sql = "UPDATE [UFRecordFields] Set DataType = 'LongString' WHERE DataType = 'String' AND [Key] IN ( SELECT [Key] FROM [UFRecordDataLongString] ) AND [Key] NOT IN ( SELECT [Key] FROM [UFRecordDataString] )";
+            sqlHelper.ExecuteNonQuery(sql);
+        }
     }
 }
