@@ -122,6 +122,11 @@ namespace Umbraco.Forms.Migration
                         v4Form.Pages.Add(v4Page);
                     }
 
+                    using (var s = new Forms.Data.Storage.FormStorage())
+                    {
+                        v4Form = s.InsertForm(v4Form);
+                    }
+
                     using (var ws = new WorkflowStorage(sql))
                     {
                         var wfs = ws.GetAllWorkFlows(form);
@@ -141,14 +146,7 @@ namespace Umbraco.Forms.Migration
                             }
                         }
                     }
-
-
-                    using (var s = new Forms.Data.Storage.FormStorage()) { 
-                        v4Form = s.InsertForm(v4Form);
-                    }
-
-
-
+                    
                     // store records
                     using (var rs = new RecordStorage(sql))
                     {
