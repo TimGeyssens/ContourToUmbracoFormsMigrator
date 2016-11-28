@@ -22,6 +22,15 @@ namespace Umbraco.Forms.Migration {
         protected global::System.Web.UI.WebControls.TextBox TextBox1;
         
         /// <summary>
+        /// ignoreRecords control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.CheckBox ignoreRecords;
+        
+        /// <summary>
         /// Button1 control.
         /// </summary>
         /// <remarks>

@@ -19,7 +19,10 @@ namespace Umbraco.Forms.Migration
             var success = true;
             try
             {
-                var s = new MigrationService();
+                var s = new MigrationService
+                {
+                    IgnoreRecords = this.ignoreRecords.Checked
+                };
                 s.Migrate(TextBox1.Text);
             }
             catch (Exception ex)
